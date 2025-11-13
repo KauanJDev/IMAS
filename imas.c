@@ -112,29 +112,49 @@ int main(int argc, char *argv[]) {
 
 		/* Fetch subcycle */
 		// TODO: Fetch instruction from memory (like in IAS)
+		imas.mar = imas.pc;
+		memory_read(&imas);
+		imas.ibr = imas.mbr;
+		imas.ir = imas.ibr & 0xF000;
+		imas.mar = (imas.ibr & 0x0FFF);
+
 
 		/* Decode subcycle */
 		// TODO: Put instruction fields in registers
+		imas.ir = (imas.ibr & 0xF000) >> 12;
+		imas.mar = (imas.ibr & 0x0FFF);
+		imas.pc += 1;
 
 		/* Execute subcycle */
 		switch(imas.ir) {
 		case IMAS_HALT:
 			// TODO
+			imas_halt = true;
 			break;
 		case IMAS_LOAD_M:
 			// TODO
+			imas.mar = imas.mar;
+			memory_read(&imas);
 			break;
 		case IMAS_LOAD_MQ:
 			// TODO
+			imas.ac = imas.mq;
+			imas.mq = 0;
 			break;
 		case IMAS_LOAD_MQ_M:
 			// TODO
+			imas.mar = imas.mar;
+			memory_read(&imas);
 			break;
 		case IMAS_STOR_M:
 			// TODO
+			imas.mar = imas.mar;
+			imas.mbr = imas.ac;
 			break;
 		case IMAS_STA_M:
 			// TODO
+			imas.mar = imas.mar;
+			imas.mbr = (imas.memory[imas.mar] & 0xF000) | (imas.ac & 0x0FFF);
 			break;
 		case IMAS_ADD_M:
 			// TODO
