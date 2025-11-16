@@ -45,18 +45,22 @@ typedef struct imas_t {
 /* Executes a read from memory */
 void memory_read(imas_t *imas) {
 	// TODO
-    imas->mbr = imas->memory[imas->mar];
+    //imas->mbr = imas->memory[imas->mar];
+	imas->mbr = (int16_t)imas->memory[imas->mar]; //Mais seguro
 }
 
 /* Executes a write into memory */
 void memory_write(imas_t *imas, bool modify_address) {
 	if(modify_address) {
 		// TODO: Write only operand address field
-        imas->memory[imas->mar] = imas->mbr;
+        //imas->memory[imas->mar] = (imas->memory[imas->mar] & 0xF000u) | (imas->mbr & 0x0FFFu);
+		uint16_t old = imas->memory[imas->mar];
+        uint16_t newlow = ((uint16_t)imas->mbr) & 0x0FFFu;
+        imas->memory[imas->mar] = (old & 0xF000u) | newlow;
 	}
 	else {
 		// TODO
-        imas->memory[imas->mar] = imas->mbr;
+        imas->memory[imas->mar] = (uint16_t)imas->mbr;
 	}
 }
 
@@ -112,18 +116,20 @@ int main(int argc, char *argv[]) {
 
 		/* Fetch subcycle */
 		// TODO: Fetch instruction from memory (like in IAS)
-		imas.mar = imas.pc;
-		memory_read(&imas);
-		imas.ibr = imas.mbr;
-		imas.ir = imas.ibr & 0xF000;
-		imas.mar = (imas.ibr & 0x0FFF);
+		if (imas.mar >= IMAS_MEM_SIZE) {
+        printf("Memory access out of range at fetch: 0x%04hX\n", imas.mar);
+        imas_halt = true;
+        break;
+    }
+
+	 imas.ibr = imas.memory[imas.mar];
+	 imas.pc++;
 
 
 		/* Decode subcycle */
 		// TODO: Put instruction fields in registers
-		imas.ir = (imas.ibr & 0xF000) >> 12;
-		imas.mar = (imas.ibr & 0x0FFF);
-		imas.pc += 1;
+		imas.ir  = (imas.ibr >> 12) & 0xF;
+    	imas.mar =  imas.ibr & 0x0FFF;
 
 		/* Execute subcycle */
 		switch(imas.ir) {
@@ -133,55 +139,79 @@ int main(int argc, char *argv[]) {
 			break;
 		case IMAS_LOAD_M:
 			// TODO
-			imas.mar = imas.mar;
 			memory_read(&imas);
+    		imas.ac = imas.mbr;
 			break;
 		case IMAS_LOAD_MQ:
 			// TODO
 			imas.ac = imas.mq;
-			imas.mq = 0;
 			break;
 		case IMAS_LOAD_MQ_M:
 			// TODO
-			imas.mar = imas.mar;
 			memory_read(&imas);
+			imas.mq = imas.mbr;
 			break;
 		case IMAS_STOR_M:
 			// TODO
-			imas.mar = imas.mar;
 			imas.mbr = imas.ac;
+			memory_write(&imas,false);
 			break;
 		case IMAS_STA_M:
 			// TODO
-			imas.mar = imas.mar;
-			imas.mbr = (imas.memory[imas.mar] & 0xF000) | (imas.ac & 0x0FFF);
-			break;
+			imas.mbr = imas.ac;
+    		memory_write(&imas, true);
+    		break;
 		case IMAS_ADD_M:
 			// TODO
-			break;
+			memory_read(&imas);
+    		imas.ac = imas.ac + imas.mbr;
+    		break;
 		case IMAS_SUB_M:
 			// TODO
+			memory_read(&imas);
+			imas.ac = imas.ac - imas.mbr;
 			break;
 		case IMAS_MUL_M:
 			// TODO
+			memory_read(&imas);
+			int32_t prod = (int32_t)imas.mq * (int32_t)imas.mbr;
+    		imas.mq = (int16_t)(prod & 0xFFFF);
+    		imas.ac = (int16_t)((prod >> 16) & 0xFFFF);
 			break;
 		case IMAS_DIV_M:
 			// TODO
+			memory_read(&imas);
+    		if(imas.mbr == 0) {
+        		printf("Division by zero at address 0x%04hX!\n", imas.mar);
+        		imas_halt = true;
+    		} else {
+        	imas.mq = (int16_t)(imas.ac / imas.mbr);
+        	imas.ac = (int16_t)(imas.ac % imas.mbr);
+    		}
 			break;
 		case IMAS_JMP_M:
 			// TODO
+			imas.pc = imas.mar;
 			break;
 		case IMAS_JZ_M:
 			// TODO
+			if(imas.ac == 0) {
+				imas.pc = imas.mar;
+			}
 			break;
 		case IMAS_JNZ_M:
 			// TODO
+			if(imas.ac != 0) {
+				imas.pc = imas.mar;
+			}
 			break;
 		case IMAS_JPOS_M:
 			// TODO
+			if(imas.ac >= 0) imas.pc = imas.mar;
 			break;
 		case IMAS_IN:
 			// TODO
+			io_read(&imas);
 			break;
 		case IMAS_OUT:
 			// TODO
