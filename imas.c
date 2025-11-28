@@ -114,6 +114,8 @@ int main(int argc, char *argv[]) {
 		/* PC before modifications */
 		uint16_t original_pc = imas.pc;
 
+		imas.mar = imas.pc;
+
 		/* Fetch subcycle */
 		// TODO: Fetch instruction from memory (like in IAS)
 		if (imas.mar >= IMAS_MEM_SIZE) {
