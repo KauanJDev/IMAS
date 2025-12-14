@@ -4,10 +4,8 @@
 #include <string.h>
 #include <stdbool.h>
 
-/* IMAS memory size (4K X 16) */
 #define IMAS_MEM_SIZE 		(4096)
 
-/* IMAS instructions */
 #define IMAS_HALT			(0x0) 	/* HALT 			| Stops processor */
 #define IMAS_LOAD_M			(0x1)	/* LOAD M(X) 		| AC <= MEMORY[X] */
 #define IMAS_LOAD_MQ		(0x2)	/* LOAD MQ 			| AC <= MQ */
@@ -25,7 +23,6 @@
 #define IMAS_IN				(0xE) 	/* IN 				| AC <= IO */
 #define IMAS_OUT			(0xF) 	/* OUT 				| IO <= AC */
 
-/* IMAS registers and memory definitions */
 typedef struct imas_t {
 	/* UC */
 	uint16_t pc;	/* Program Counter */
@@ -38,150 +35,117 @@ typedef struct imas_t {
 	int16_t ac;		/* Accumulator */
 	int16_t mq;		/* Multiplier Quocient */
 
-	/* MEMORY */
+
 	uint16_t memory[IMAS_MEM_SIZE];
 } imas_t;
 
-/* Executes a read from memory */
 void memory_read(imas_t *imas) {
-	// TODO
-    //imas->mbr = imas->memory[imas->mar];
-	imas->mbr = (int16_t)imas->memory[imas->mar]; //Mais seguro
+	imas->mbr = (int16_t)imas->memory[imas->mar];
 }
 
-/* Executes a write into memory */
 void memory_write(imas_t *imas, bool modify_address) {
 	if(modify_address) {
-		// TODO: Write only operand address field
-        //imas->memory[imas->mar] = (imas->memory[imas->mar] & 0xF000u) | (imas->mbr & 0x0FFFu);
 		uint16_t old = imas->memory[imas->mar];
         uint16_t newlow = ((uint16_t)imas->mbr) & 0x0FFFu;
         imas->memory[imas->mar] = (old & 0xF000u) | newlow;
 	}
 	else {
-		// TODO
         imas->memory[imas->mar] = (uint16_t)imas->mbr;
 	}
 }
 
-/* Reads an integer from user */
 void io_read(imas_t *imas) {
 	printf("IN => "); 
 	scanf("%hd", &imas->mbr);
 }
 
-/* Outputs an integer to user */
 void io_write(imas_t *imas) {
 	printf("OUT => %hd\n", imas->mbr);
 }
 
 int main(int argc, char *argv[]) {
-	/* Check arguments */
 	if(argc < 2) {
 		printf("IMAS expects at least 2 arguments.\n");
 		return 1;
 	}
 
-	/* Open input file */
 	FILE *input_file = fopen(argv[1], "r");
 	if(!input_file) {
 		printf("Error opening %s!\n", argv[1]);
 		return 1;
 	}
 
-	/* Set breakpoints */
 	bool breakpoints[IMAS_MEM_SIZE] = {false};
 	for(int i = 2; i < argc; i++) {
 		int address = strtol(argv[i], NULL, 16);
 		breakpoints[address] = true;
 	}
 	
-	/* Initiate IMAS registers as zero */
 	imas_t imas = {0};
 
-	/* Zero IMAS memory */
 	memset(&imas.memory, 0x0000, IMAS_MEM_SIZE);
 
-	/* Fill IMAS memory */
 	uint16_t address, buffer;
     while(fscanf(input_file, "%hX %hX%*[^\n]", &address, &buffer) == 2) {
 		imas.memory[address] = buffer;
     }
 
-	/* Processor running */
 	bool imas_halt = false;
 	do {
-		/* PC before modifications */
 		uint16_t original_pc = imas.pc;
 
 		imas.mar = imas.pc;
 
-		/* Fetch subcycle */
-		// TODO: Fetch instruction from memory (like in IAS)
 		if (imas.mar >= IMAS_MEM_SIZE) {
         printf("Memory access out of range at fetch: 0x%04hX\n", imas.mar);
         imas_halt = true;
         break;
     }
 
-	 imas.ibr = imas.memory[imas.mar];
-	 imas.pc++;
+	 	imas.ibr = imas.memory[imas.mar];
+	 	imas.pc++;
 
-
-		/* Decode subcycle */
-		// TODO: Put instruction fields in registers
 		imas.ir  = (imas.ibr >> 12) & 0xF;
     	imas.mar =  imas.ibr & 0x0FFF;
 
-		/* Execute subcycle */
 		switch(imas.ir) {
 		case IMAS_HALT:
-			// TODO
 			imas_halt = true;
 			break;
 		case IMAS_LOAD_M:
-			// TODO
 			memory_read(&imas);
     		imas.ac = imas.mbr;
 			break;
 		case IMAS_LOAD_MQ:
-			// TODO
 			imas.ac = imas.mq;
 			break;
 		case IMAS_LOAD_MQ_M:
-			// TODO
 			memory_read(&imas);
 			imas.mq = imas.mbr;
 			break;
 		case IMAS_STOR_M:
-			// TODO
 			imas.mbr = imas.ac;
 			memory_write(&imas,false);
 			break;
 		case IMAS_STA_M:
-			// TODO
 			imas.mbr = imas.ac;
     		memory_write(&imas, true);
     		break;
 		case IMAS_ADD_M:
-			// TODO
 			memory_read(&imas);
     		imas.ac = imas.ac + imas.mbr;
     		break;
 		case IMAS_SUB_M:
-			// TODO
 			memory_read(&imas);
 			imas.ac = imas.ac - imas.mbr;
 			break;
 		case IMAS_MUL_M:
-			// TODO
 			memory_read(&imas);
 			int32_t prod = (int32_t)imas.mq * (int32_t)imas.mbr;
     		imas.mq = (int16_t)(prod & 0xFFFF);
     		imas.ac = (int16_t)((prod >> 16) & 0xFFFF);
 			break;
 		case IMAS_DIV_M:
-			// TODO
 			memory_read(&imas);
     		if(imas.mbr == 0) {
         		printf("Division by zero at address 0x%04hX!\n", imas.mar);
@@ -192,31 +156,25 @@ int main(int argc, char *argv[]) {
     		}
 			break;
 		case IMAS_JMP_M:
-			// TODO
 			imas.pc = imas.mar;
 			break;
 		case IMAS_JZ_M:
-			// TODO
 			if(imas.ac == 0) {
 				imas.pc = imas.mar;
 			}
 			break;
 		case IMAS_JNZ_M:
-			// TODO
 			if(imas.ac != 0) {
 				imas.pc = imas.mar;
 			}
 			break;
 		case IMAS_JPOS_M:
-			// TODO
 			if(imas.ac >= 0) imas.pc = imas.mar;
 			break;
 		case IMAS_IN:
-			// TODO
 			io_read(&imas);
 			break;
 		case IMAS_OUT:
-			// TODO
 			io_write(&imas);
 			break;
 		default:
@@ -225,7 +183,6 @@ int main(int argc, char *argv[]) {
 			break;
 		}
 
-		/* Breakpoint subcycle */
 		if(breakpoints[original_pc]) {
 			printf("<== IMAS Registers ==>\n");
 			printf("PC = 0x%04hX\n", original_pc);
